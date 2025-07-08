@@ -1,7 +1,7 @@
 'use client';
 
 import { usePlayback } from '@/app/playback-context';
-import { PlaylistWithSongs, Song } from '@/lib/db/types';
+// import { PlaylistWithSongs, Song } from '@/lib/db/types'; // Old types
 import { formatDuration, highlightText } from '@/lib/utils';
 import { useRef, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,21 +16,50 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { usePlaylist } from '@/app/hooks/use-playlist';
-import { addToPlaylistAction } from '@/app/actions';
+// import { addToPlaylistAction } from '@/app/actions'; // Old action
 import Image from 'next/image';
+import { useQuery, useMutation } from 'convex/react'; // Added for Convex
+import { api } from '../../../convex/_generated/api'; // Adjusted path
+import type { Doc, Id } from '../../../convex/_generated/dataModel'; // Adjusted path
+import type { Song as PlaybackSong } from '@/lib/db/types'; // Alias old Song type for clarity
+
+// Define a type for the songs returned by our Convex query
+type ConvexSongWithOrder = Doc<"songs"> & { order: number; playlistSongId: Id<"playlistSongs"> };
+
+// Helper function to map Convex song data to the structure expected by PlaybackContext
+function mapConvexSongToPlaybackSong(convexSong: ConvexSongWithOrder): PlaybackSong {
+  return {
+    id: convexSong._id, // Use Convex _id as id
+    name: convexSong.name,
+    artist: convexSong.artist,
+    album: convexSong.album || null,
+    duration: convexSong.duration,
+    genre: convexSong.genre || null,
+    bpm: convexSong.bpm || null,
+    key: convexSong.key || null,
+    imageUrl: convexSong.imageUrl || null,
+    audioUrl: convexSong.audioUrl,
+    isLocal: convexSong.isLocal,
+    createdAt: new Date(convexSong._creationTime), // Derive from _creationTime
+    updatedAt: new Date(convexSong._creationTime), // Derive from _creationTime for now
+  };
+}
+
 
 function TrackRow({
-  track,
+  track, // track will now be of type ConvexSongWithOrder
   index,
   query,
   isSelected,
   onSelect,
+  playlistId, // Pass playlistId for adding to other playlists
 }: {
-  track: Song;
+  track: ConvexSongWithOrder;
   index: number;
   query?: string;
   isSelected: boolean;
   onSelect: () => void;
+  playlistId: Id<"playlists">; // ID of the current playlist
 }) {
   let {
     currentTrack,
@@ -40,11 +69,14 @@ function TrackRow({
     setActivePanel,
     handleKeyNavigation,
   } = usePlayback();
-  let { playlists } = usePlaylist();
+  let { playlists } = usePlaylist(); // For listing other playlists to add to
+  const convexAddSongToPlaylist = useMutation(api.playlists.addSongToPlaylist);
 
   let [isFocused, setIsFocused] = useState(false);
   let isProduction = process.env.NEXT_PUBLIC_VERCEL_ENV === 'production';
-  let isCurrentTrack = currentTrack?.name === track.name;
+
+  const mappedTrackForPlayback = mapConvexSongToPlaybackSong(track);
+  let isCurrentTrack = currentTrack?.id === mappedTrackForPlayback.id;
 
   function onClickTrackRow(e: React.MouseEvent) {
     e.preventDefault();
@@ -53,7 +85,7 @@ function TrackRow({
     if (isCurrentTrack) {
       togglePlayPause();
     } else {
-      playTrack(track);
+      playTrack(mappedTrackForPlayback);
     }
   }
 
@@ -64,7 +96,7 @@ function TrackRow({
       if (isCurrentTrack) {
         togglePlayPause();
       } else {
-        playTrack(track);
+        playTrack(mappedTrackForPlayback);
       }
     } else {
       handleKeyNavigation(e, 'tracklist');
@@ -142,7 +174,7 @@ function TrackRow({
                   if (isCurrentTrack) {
                     togglePlayPause();
                   } else {
-                    playTrack(track);
+                    playTrack(mappedTrackForPlayback); // Corrected this instance
                   }
                 }}
               >
@@ -167,10 +199,23 @@ function TrackRow({
                   {playlists.map((playlist) => (
                     <DropdownMenuItem
                       className="text-xs"
-                      key={playlist.id}
-                      onClick={(e) => {
+                      key={playlist.id} // playlist here is from usePlaylist() context
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        addToPlaylistAction(playlist.id, track.id);
+                        try {
+                          // We need the order for the new playlist.
+                          // For simplicity, let's assume adding to the end.
+                          // A more robust solution would fetch the max order for that playlist.
+                          await convexAddSongToPlaylist({
+                            playlistId: playlist.id as Id<"playlists">, // Target playlist ID
+                            songId: track._id, // Current song's ID
+                            order: Date.now(), // Simplistic order, consider a better strategy
+                          });
+                          // Optionally, show a success notification
+                        } catch (error) {
+                          console.error("Failed to add song to playlist:", error);
+                          // Optionally, show an error notification
+                        }
                       }}
                     >
                       {playlist.name}
@@ -190,23 +235,39 @@ function TrackRow({
 }
 
 export function TrackTable({
-  playlist,
+  playlistId, // Changed from 'playlist' object to just 'playlistId'
   query,
 }: {
-  playlist: PlaylistWithSongs;
+  playlistId: Id<"playlists">;
   query?: string;
 }) {
   let tableRef = useRef<HTMLTableElement>(null);
   let { registerPanelRef, setActivePanel, setPlaylist } = usePlayback();
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
 
+  // Fetch songs for the current playlist using Convex query
+  const songsForPlaylist = useQuery(api.playlistSongs.getSongsForPlaylist, { playlistId });
+
   useEffect(() => {
     registerPanelRef('tracklist', tableRef);
   }, [registerPanelRef]);
 
   useEffect(() => {
-    setPlaylist(playlist.songs);
-  }, [playlist.songs, setPlaylist]);
+    if (songsForPlaylist) {
+      const mappedSongs = songsForPlaylist.map(mapConvexSongToPlaybackSong);
+      setPlaylist(mappedSongs);
+    } else {
+      setPlaylist([]); // Clear playlist if no songs are fetched
+    }
+  }, [songsForPlaylist, setPlaylist]);
+
+  if (songsForPlaylist === undefined) {
+    return <div>Loading tracks...</div>; // Or some other loading indicator
+  }
+
+  if (!songsForPlaylist || songsForPlaylist.length === 0) {
+    return <div className="p-4 text-center text-gray-400">No tracks in this playlist.</div>;
+  }
 
   return (
     <table
@@ -225,14 +286,15 @@ export function TrackTable({
         </tr>
       </thead>
       <tbody className="mt-[1px]">
-        {playlist.songs.map((track: Song, index: number) => (
+        {songsForPlaylist.map((track: ConvexSongWithOrder, index: number) => (
           <TrackRow
-            key={track.id}
+            key={track._id} // Use Convex _id as key
             track={track}
-            index={index}
+            index={index} // This index is based on the fetched order
             query={query}
-            isSelected={selectedTrackId === track.id}
-            onSelect={() => setSelectedTrackId(track.id)}
+            isSelected={selectedTrackId === track._id}
+            onSelect={() => setSelectedTrackId(track._id)}
+            playlistId={playlistId} // Pass current playlistId
           />
         ))}
       </tbody>

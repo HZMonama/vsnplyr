@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { usePlayback } from '@/app/playback-context';
-import { createPlaylistAction, deletePlaylistAction } from './actions';
+// import { createPlaylistAction, deletePlaylistAction } from './actions'; // Old server actions, to be removed
 import { usePlaylist } from '@/app/hooks/use-playlist';
 import {
   DropdownMenu,
@@ -15,8 +15,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Playlist } from '@/lib/db/types';
-import { v4 as uuidv4 } from 'uuid';
+import type { Playlist } from '@/app/hooks/use-playlist'; // Use Playlist type from the hook
+// import { v4 as uuidv4 } from 'uuid'; // No longer needed for ID generation
 import { SearchInput } from './search';
 
 let isProduction = process.env.NEXT_PUBLIC_VERCEL_ENV === 'production';
@@ -24,18 +24,17 @@ let isProduction = process.env.NEXT_PUBLIC_VERCEL_ENV === 'production';
 function PlaylistRow({ playlist }: { playlist: Playlist }) {
   let pathname = usePathname();
   let router = useRouter();
-  let { deletePlaylist } = usePlaylist();
+  let { deletePlaylist } = usePlaylist(); // This now calls the Convex mutation
 
   async function handleDeletePlaylist(id: string) {
-    deletePlaylist(id);
+    await deletePlaylist(id); // Call the hook's deletePlaylist
 
     if (pathname === `/p/${id}`) {
       router.prefetch('/');
       router.push('/');
     }
-
-    deletePlaylistAction(id);
-    router.refresh();
+    // deletePlaylistAction(id); // Removed old server action
+    router.refresh(); // router.refresh() might still be useful to ensure UI consistency after delete
   }
 
   return (
@@ -79,7 +78,8 @@ function PlaylistRow({ playlist }: { playlist: Playlist }) {
 }
 
 export function OptimisticPlaylists() {
-  let { playlists, updatePlaylist } = usePlaylist();
+  // updatePlaylist is not directly used here for adding, addPlaylist from the hook will be used.
+  let { playlists, addPlaylist: addPlaylistFromHook } = usePlaylist();
   let playlistsContainerRef = useRef<HTMLUListElement>(null);
   let pathname = usePathname();
   let router = useRouter();
@@ -89,21 +89,29 @@ export function OptimisticPlaylists() {
     registerPanelRef('sidebar', playlistsContainerRef);
   }, [registerPanelRef]);
 
-  async function addPlaylistAction() {
-    let newPlaylistId = uuidv4();
-    let newPlaylist = {
-      id: newPlaylistId,
+  async function handleAddPlaylist() { // Renamed from addPlaylistAction to avoid confusion
+    const newPlaylistData = {
       name: 'New Playlist',
-      coverUrl: '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      coverUrl: '', // Or null if your schema/type expects null for empty
     };
 
-    updatePlaylist(newPlaylistId, newPlaylist);
-    router.prefetch(`/p/${newPlaylistId}`);
-    router.push(`/p/${newPlaylistId}`);
-    createPlaylistAction(newPlaylistId, 'New Playlist');
-    router.refresh();
+    // addPlaylistFromHook handles optimistic update and calls Convex mutation
+    const newConvexPlaylistId = await addPlaylistFromHook(newPlaylistData);
+
+    if (newConvexPlaylistId) {
+      // Navigate to the new playlist page using the ID returned by Convex
+      // (or the temporary ID if you prefer immediate navigation before Convex confirms)
+      // For now, we'll assume immediate navigation is fine, but the ID might be temporary.
+      // The hook's optimistic update uses a tempId.
+      // A more robust solution might involve waiting for the real ID or updating the route once it's available.
+      router.prefetch(`/p/${newConvexPlaylistId}`); // Prefetch with the actual or temp ID
+      router.push(`/p/${newConvexPlaylistId}`); // Navigate
+    } else {
+      // Handle error, e.g., show a notification
+      console.error("Failed to create playlist");
+    }
+    // createPlaylistAction(newPlaylistId, 'New Playlist'); // Removed old server action
+    router.refresh(); // May still be useful
   }
 
   return (
@@ -130,18 +138,19 @@ export function OptimisticPlaylists() {
           >
             Playlists
           </Link>
-          <form action={addPlaylistAction}>
-            <Button
+          {/* Changed from form action to onClick handler */}
+          <Button
+              onClick={handleAddPlaylist}
               disabled={isProduction}
               variant="ghost"
               size="icon"
               className="h-5 w-5"
-              type="submit"
+              // type="submit" // Removed type="submit"
             >
               <Plus className="w-3 h-3 text-gray-400" />
               <span className="sr-only">Add new playlist</span>
             </Button>
-          </form>
+          {/* </form> // Removed closing form tag */}
         </div>
       </div>
       <ScrollArea className="h-[calc(100dvh-180px)]">

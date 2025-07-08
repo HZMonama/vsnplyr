@@ -1,3 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -29,6 +32,14 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
@@ -56,7 +67,167 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
+}
+
+/* Override SidebarInset background to ensure transparency */
+[data-sidebar="inset"] {
+  background: transparent !important;
+}
+
+/* Ensure main content areas are transparent */
+.sidebar-inset-override {
+  background: transparent !important;
+}
+
+/* Aggressive frosted glass styling for left sidebar */
+[data-sidebar="sidebar"] {
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Force override all sidebar backgrounds */
+.sidebar-frosted-glass [data-sidebar="sidebar"],
+.sidebar-frosted-glass .bg-sidebar,
+[data-variant="floating"] [data-sidebar="sidebar"] {
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+/* Header and footer frosted glass effect */
+[data-sidebar="header"],
+[data-sidebar="footer"] {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Override the base sidebar fixed positioning for floating variants */
+.sidebar-floating .group.peer > div.fixed.inset-y-0 {
+  top: auto !important;
+  bottom: 16px !important;
+  height: 80vh !important;
+  inset-y: auto !important;
+  transition: all 0.3s ease-in-out !important;
+}
+
+/* Ensure the inner sidebar panel respects the floating container */
+.sidebar-floating [data-sidebar="sidebar"] {
+  height: 100% !important;
+  width: 20vw !important;
+  max-height: 100% !important;
+}
+
+/* Left sidebar positioning - target the specific fixed div */
+.sidebar-floating[data-side="left"] .group.peer > div.fixed.inset-y-0 {
+  left: 16px !important;
+}
+
+/* Right sidebar positioning - target the specific fixed div */
+.sidebar-floating[data-side="right"] .group.peer > div.fixed.inset-y-0 {
+  right: 16px !important;
+}
+
+/* Additional targeting for floating variant data attribute */
+[data-variant="floating"].sidebar-floating .group.peer > div.fixed.inset-y-0 {
+  top: auto !important;
+  bottom: 16px !important;
+  height: 80vh !important;
+  inset-y: auto !important;
+}
+
+/* Target by more specific class combinations from the sidebar component */
+.sidebar-floating .group.peer > div[class*="fixed inset-y-0"],
+.sidebar-floating .group.peer > div[class*="inset-y-0"] {
+  top: auto !important;
+  bottom: 16px !important;
+  height: 80vh !important;
+  inset-y: auto !important;
+}
+
+/* Default sidebar container positioning */
+.group\/sidebar-wrapper,
+.group\/right-sidebar-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  height: 100vh !important;
+}
+
+/* Right sidebar wrapper alignment */
+.group\/right-sidebar-wrapper {
+  justify-content: flex-end !important;
+}
+
+/* Override for floating sidebars - don't interfere with positioning */
+.sidebar-floating .group\/sidebar-wrapper,
+.sidebar-floating .group\/right-sidebar-wrapper {
+  position: relative !important;
+  height: 100vh !important;
+  pointer-events: none !important; /* Allow clicks to pass through to the actual sidebar */
+}
+
+/* Re-enable pointer events on the actual sidebar content */
+.sidebar-floating .group\/sidebar-wrapper > *,
+.sidebar-floating .group\/right-sidebar-wrapper > * {
+  pointer-events: auto !important;
+}
+
+/* Enhanced keyboard shortcut tooltips */
+.keyboard-shortcut-tooltip {
+  background: rgba(0, 0, 0, 0.3); /* Made lighter */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08); /* Slightly lighter border */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); /* Softer shadow */
+  border-radius: 9999px; /* Make it fully rounded (pill shape) */
+  padding-left: 0.75rem; /* 12px */
+  padding-right: 0.75rem; /* 12px */
+}
+
+/* Mobile responsiveness for sidebar toggles */
+@media (max-width: 768px) {
+  .sidebar-toggle-responsive {
+    left: 16px !important;
+    right: 16px !important;
+  }
+}
+
+/* Round sidebar toggle styling */
+.sidebar-toggle-round {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+  transition: all 0.3s ease !important;
+}
+
+.sidebar-toggle-round:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3) !important;
+  transform: scale(1.05) !important;
+}
+
+/* Right sidebar specific styling */
+.right-sidebar-frosted [data-sidebar="sidebar"] {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 @layer base {
@@ -72,4 +243,312 @@
 /* There's custom focus styles for the TrackTable */
 tr:focus {
   outline: none;
+}
+
+/* Glassmorphic Styles */
+.liquid-glass {
+  width: 300px;
+  height: 200px;
+  border-radius: 32px;
+  position: relative;
+  isolation: isolate;
+  box-shadow: 0px 6px 24px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.liquid-glass:focus {
+  outline: none;
+}
+
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 32px;
+  box-shadow: inset 0 0 21px -7px #000000;
+  background-color: rgba(255, 255, 255, 0);
+}
+
+.liquid-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 32px;
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  filter: url(#glass-distortion);
+  -webkit-filter: url(#glass-distortion);
+}
+
+.glass-text {
+  position: relative;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 400;
+  text-shadow: 0px 2px 14px rgba(0, 0, 0, 0.65);
+  opacity: 1;
+  transform: translate(0px, 0px);
+  font-family: var(--font-inter), sans-serif; /* Using Inter as requested */
+}
+
+/* Liquid Glass Panel for Player Controls */
+.liquid-glass-panel {
+  position: relative;
+  isolation: isolate;
+}
+
+.liquid-glass-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.liquid-glass-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  filter: blur(1px);
+}
+
+/* Organic Geometry Controls Container */
+.organic-controls-container {
+  border-radius: 2rem 1rem 2rem 1rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    inset 0 2px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 0 rgba(255, 255, 255, 0.15);
+  transform: perspective(1000px) rotateX(1deg) rotateY(-0.5deg);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.organic-controls-container:hover {
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1.01);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    inset 0 2px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Organic Geometry Slider Container */
+.organic-slider-container {
+  border-radius: 1rem 2rem 1rem 2rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+  transform: perspective(1000px) rotateX(-0.5deg) rotateY(0.5deg);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.organic-slider-container:hover {
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* VSN Player Background Text */
+.vsnplyr-background-text {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-weight: 700;
+  font-size: clamp(2rem, 6vw, 4rem);
+  color: rgba(255, 255, 255, 1.0);
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+}
+
+/* Responsive scaling for different viewport sizes */
+@media (max-width: 768px) {
+  .vsnplyr-background-text {
+    font-size: clamp(1.5rem, 5vw, 3rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .vsnplyr-background-text {
+    font-size: clamp(1.2rem, 4vw, 2rem);
+  }
+}
+
+/* Enhanced Liquid Glass Sidebar Styles */
+.sidebar-glass-morphism {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.02) 50%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  position: relative;
+  isolation: isolate;
+}
+
+.sidebar-glass-morphism::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sidebar-glass-morphism::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Floating animation for sidebar */
+@keyframes sidebar-float {
+  0%, 100% {
+    transform: translateY(0px) rotateX(0deg);
+  }
+  50% {
+    transform: translateY(-2px) rotateX(0.5deg);
+  }
+}
+
+.sidebar-floating {
+  animation: sidebar-float 6s ease-in-out infinite;
+}
+
+/* Tooltip with Alt+L indicator */
+.sidebar-toggle-tooltip {
+  position: relative;
+}
+
+.sidebar-toggle-tooltip::after {
+  content: attr(data-shortcut-text);
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+  z-index: 1000;
+}
+
+.sidebar-toggle-tooltip:hover::after {
+  opacity: 1;
+}
+
+/* Enhanced glass button effects */
+.glass-button {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-button:hover {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.glass-button:active {
+  transform: translateY(0px);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Hide sidebar rails to remove duplicate toggles */
+[data-sidebar="rail"] {
+  display: none !important;
+}
+
+/* Organic Geometry Search Container (flipped slider) */
+.organic-search-container {
+  border-radius: 2rem 1rem 2rem 1rem; /* Flipped: 1rem 2rem 1rem 2rem */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+  transform: perspective(1000px) rotateX(0.5deg) rotateY(-0.5deg); /* Flipped Y rotation */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.organic-search-container:hover {
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.15);
 }

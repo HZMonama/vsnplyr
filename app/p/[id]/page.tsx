@@ -1,69 +1,49 @@
-import { Button } from '@/components/ui/button';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ChevronLeft, ChevronRight, Shuffle } from 'lucide-react';
-import { TrackTable } from './track-table';
-import { getPlaylistWithSongs } from '@/lib/db/queries';
-import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import { formatDuration } from '@/lib/utils';
-import { CoverImage } from './cover-image';
-import { EditableTitle } from './editable-title';
+'use client'; // Make it a client component
 
-export default async function PlaylistPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  let id = (await params).id;
-  let playlist = await getPlaylistWithSongs(id);
+import { useParams, useRouter, notFound } from 'next/navigation'; // Added useRouter
+import type { Id } from '../../../convex/_generated/dataModel'; // Adjusted path
+import { PlaylistOverlay } from '@/components/playlist-overlay'; // Import the new overlay component
+import { useEffect, useState } from 'react';
 
-  if (!playlist) {
-    notFound();
+export default function PlaylistPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const [playlistId, setPlaylistId] = useState<Id<"playlists"> | null>(null);
+
+  useEffect(() => {
+    if (params.id) {
+      setPlaylistId(params.id as Id<"playlists">);
+    } else {
+      // If no ID, redirect or show error, for now redirect to home
+      // This case might not be hit if Next.js routing handles missing [id] already
+      router.push('/');
+    }
+  }, [params.id, router]);
+
+  const handleCloseOverlay = () => {
+    router.push('/'); // Navigate to home page when overlay is closed
+  };
+
+  // The PlaylistOverlay component now handles its own data fetching and loading/error states.
+  // This page component is now primarily responsible for routing and triggering the overlay.
+  
+  // We need to ensure the page doesn't show anything else or try to render before playlistId is set,
+  // or if the overlay is meant to be the *only* content for this route.
+  // If playlistId is not yet available (e.g. initial render before useEffect),
+  // we can return null or a minimal loader, but the overlay itself has a loader.
+  // Let's ensure we pass a valid or null playlistId to the overlay.
+
+  if (!params.id) {
+    // Fallback if no ID is present, though useEffect should redirect.
+    // Returning null or a minimal loader is fine here as PlaylistOverlay handles its own states.
+    return null;
   }
 
+  // This div will take up the full available space within SidebarInset
+  // (which has pb-[69px]) and center the PlaylistOverlay or its loading/error states.
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#0A0A0A] pb-[69px]">
-      <div className="flex items-center justify-between p-3 bg-[#0A0A0A]">
-        <div className="flex items-center space-x-1">
-          <Link href="/" passHref>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-          </Link>
-          <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-          <span className="text-sm">{playlist.name}</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="secondary"
-            className="h-7 text-xs bg-[#282828] hover:bg-[#3E3E3E] text-white"
-          >
-            Play All
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7">
-            <Shuffle className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex items-center py-3 px-4 space-x-3 bg-[#0A0A0A]">
-        <CoverImage url={playlist.coverUrl} playlistId={playlist.id} />
-        <div>
-          <EditableTitle playlistId={playlist.id} initialName={playlist.name} />
-          <p className="text-xs sm:text-sm text-gray-400">
-            {playlist.trackCount} tracks • {formatDuration(playlist.duration)}
-          </p>
-        </div>
-      </div>
-
-      <ScrollArea className="flex-1 mt-3">
-        <div className="min-w-max">
-          <TrackTable playlist={playlist} />
-        </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+    <div className="w-full h-full flex items-center justify-center"> {/* Re-added items-center, p-4 remains removed */}
+      <PlaylistOverlay playlistId={playlistId} onClose={handleCloseOverlay} />
     </div>
   );
 }

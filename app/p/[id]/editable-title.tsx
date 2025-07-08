@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { updatePlaylistNameAction } from '@/app/actions';
+// import { updatePlaylistNameAction } from '@/app/actions'; // Removed old server action
 import { usePlaylist } from '@/app/hooks/use-playlist';
 
 export function EditableTitle({
@@ -27,8 +27,9 @@ export function EditableTitle({
     e.preventDefault();
     setIsEditing(false);
     if (name.trim() !== '' && name !== initialName) {
-      updatePlaylist(playlistId, { name });
-      await updatePlaylistNameAction(playlistId, name);
+      // updatePlaylist from the hook now handles the Convex mutation
+      await updatePlaylist(playlistId, { name });
+      // await updatePlaylistNameAction(playlistId, name); // Removed call to old server action
     } else {
       setName(initialName); // Reset to initial name if empty or unchanged
     }
