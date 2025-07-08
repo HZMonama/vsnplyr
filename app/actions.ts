@@ -1,11 +1,13 @@
 'use server';
 
-import { createPlaylist } from '@/lib/db/queries';
 import { revalidatePath } from 'next/cache';
-import { db } from '@/lib/db/drizzle';
-import { playlists, playlistSongs, songs } from '@/lib/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
 import { put } from '@vercel/blob';
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+
+// Initialize Convex client for server actions
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function createPlaylistAction(id: string, name: string) {
   // Let's only handle this on local for now
@@ -13,7 +15,16 @@ export async function createPlaylistAction(id: string, name: string) {
     return;
   }
 
-  await createPlaylist(id, name);
+  try {
+    await convex.mutation(api.playlists.createPlaylist, {
+      name,
+    });
+    
+    revalidatePath('/', 'layout');
+  } catch (error) {
+    console.error('Error creating playlist:', error);
+    throw new Error('Failed to create playlist');
+  }
 }
 
 export async function uploadPlaylistCoverAction(_: any, formData: FormData) {
@@ -29,15 +40,19 @@ export async function uploadPlaylistCoverAction(_: any, formData: FormData) {
     throw new Error('No file provided');
   }
 
+  if (!playlistId) {
+    throw new Error('No playlist ID provided');
+  }
+
   try {
     const blob = await put(`playlist-covers/${playlistId}-${file.name}`, file, {
       access: 'public',
     });
 
-    await db
-      .update(playlists)
-      .set({ coverUrl: blob.url })
-      .where(eq(playlists.id, playlistId));
+    await convex.mutation(api.playlists.updatePlaylist, {
+      id: playlistId as Id<"playlists">,
+      coverUrl: blob.url,
+    });
 
     revalidatePath(`/p/${playlistId}`);
 
@@ -57,9 +72,17 @@ export async function updatePlaylistNameAction(
     return;
   }
 
-  await db.update(playlists).set({ name }).where(eq(playlists.id, playlistId));
+  try {
+    await convex.mutation(api.playlists.updatePlaylist, {
+      id: playlistId as Id<"playlists">,
+      name,
+    });
 
-  revalidatePath('/', 'layout');
+    revalidatePath('/', 'layout');
+  } catch (error) {
+    console.error('Error updating playlist name:', error);
+    throw new Error('Failed to update playlist name');
+  }
 }
 
 export async function deletePlaylistAction(id: string) {
@@ -68,77 +91,88 @@ export async function deletePlaylistAction(id: string) {
     return;
   }
 
-  await db.transaction(async (tx) => {
-    await tx
-      .delete(playlistSongs)
-      .where(eq(playlistSongs.playlistId, id))
-      .execute();
+  try {
+    await convex.mutation(api.playlists.deletePlaylist, {
+      id: id as Id<"playlists">,
+    });
 
-    await tx.delete(playlists).where(eq(playlists.id, id)).execute();
-  });
+    revalidatePath('/', 'layout');
+  } catch (error) {
+    console.error('Error deleting playlist:', error);
+    throw new Error('Failed to delete playlist');
+  }
 }
 
 export async function addToPlaylistAction(playlistId: string, songId: string) {
-  // Check if the song is already in the playlist
-  const existingEntry = await db
-    .select()
-    .from(playlistSongs)
-    .where(
-      and(
-        eq(playlistSongs.playlistId, playlistId),
-        eq(playlistSongs.songId, songId)
-      )
-    )
-    .execute();
+  try {
+    // Check if the song is already in the playlist
+    const isInPlaylist = await convex.query(api.playlistSongs.isSongInPlaylist, {
+      playlistId: playlistId as Id<"playlists">,
+      songId: songId as Id<"songs">,
+    });
 
-  if (existingEntry.length > 0) {
-    return { success: false, message: 'Song is already in the playlist' };
+    if (isInPlaylist) {
+      return { success: false, message: 'Song is already in the playlist' };
+    }
+
+    // Add song to playlist with auto-ordering
+    await convex.mutation(api.playlistSongs.addSongToPlaylistWithAutoOrder, {
+      playlistId: playlistId as Id<"playlists">,
+      songId: songId as Id<"songs">,
+    });
+
+    revalidatePath('/', 'layout');
+
+    return { success: true, message: 'Song added to playlist successfully' };
+  } catch (error) {
+    console.error('Error adding song to playlist:', error);
+    return { success: false, message: 'Failed to add song to playlist' };
   }
-
-  // Get the current maximum order for the playlist
-  const maxOrderResult = await db
-    .select({ maxOrder: sql<number>`MAX(${playlistSongs.order})` })
-    .from(playlistSongs)
-    .where(eq(playlistSongs.playlistId, playlistId))
-    .execute();
-
-  const newOrder = (maxOrderResult[0]?.maxOrder ?? 0) + 1;
-
-  await db
-    .insert(playlistSongs)
-    .values({
-      playlistId,
-      songId,
-      order: newOrder,
-    })
-    .execute();
-
-  revalidatePath('/', 'layout');
-
-  return { success: true, message: 'Song added to playlist successfully' };
 }
 
 export async function updateTrackAction(_: any, formData: FormData) {
-  let trackId = formData.get('trackId') as string;
-  let field = formData.get('field') as string;
-  let value = formData.get(field) as keyof typeof songs.$inferInsert | number;
+  const trackId = formData.get('trackId') as string;
+  const field = formData.get('field') as string;
+  let value = formData.get(field) as string;
 
-  if (value === 'bpm' && typeof value === 'number') {
-    value = parseInt(value as string);
-  } else {
-    return { success: false, error: 'bpm should be a valid number' };
+  if (!trackId || !field) {
+    return { success: false, error: 'Missing trackId or field' };
   }
 
-  let data: Partial<typeof songs.$inferInsert> = { [field]: value };
-  await db.update(songs).set(data).where(eq(songs.id, trackId));
-  revalidatePath('/', 'layout');
+  try {
+    // Handle BPM field specifically
+    if (field === 'bpm') {
+      const numericValue = parseInt(value);
+      if (isNaN(numericValue)) {
+        return { success: false, error: 'BPM should be a valid number' };
+      }
+      
+      await convex.mutation(api.songs.updateSongDetails, {
+        songId: trackId as Id<"songs">,
+        field: field,
+        value: numericValue,
+      });
+    } else {
+      // Handle other string fields
+      await convex.mutation(api.songs.updateSongDetails, {
+        songId: trackId as Id<"songs">,
+        field: field,
+        value: value,
+      });
+    }
 
-  return { success: true, error: '' };
+    revalidatePath('/', 'layout');
+
+    return { success: true, error: '' };
+  } catch (error) {
+    console.error('Error updating track:', error);
+    return { success: false, error: 'Failed to update track' };
+  }
 }
 
 export async function updateTrackImageAction(_: any, formData: FormData) {
-  let trackId = formData.get('trackId') as string;
-  let file = formData.get('file') as File;
+  const trackId = formData.get('trackId') as string;
+  const file = formData.get('file') as File;
 
   if (!trackId || !file) {
     throw new Error('Missing trackId or file');
@@ -149,10 +183,11 @@ export async function updateTrackImageAction(_: any, formData: FormData) {
       access: 'public',
     });
 
-    await db
-      .update(songs)
-      .set({ imageUrl: blob.url })
-      .where(eq(songs.id, trackId));
+    await convex.mutation(api.songs.updateSongDetails, {
+      songId: trackId as Id<"songs">,
+      field: 'imageUrl',
+      value: blob.url,
+    });
 
     revalidatePath('/', 'layout');
 
@@ -160,5 +195,45 @@ export async function updateTrackImageAction(_: any, formData: FormData) {
   } catch (error) {
     console.error('Error uploading file:', error);
     throw new Error('Failed to upload file');
+  }
+}
+
+// New action to remove song from playlist
+export async function removeSongFromPlaylistAction(playlistId: string, songId: string) {
+  try {
+    await convex.mutation(api.playlists.removeSongFromPlaylist, {
+      playlistId: playlistId as Id<"playlists">,
+      songId: songId as Id<"songs">,
+    });
+
+    revalidatePath('/', 'layout');
+
+    return { success: true, message: 'Song removed from playlist successfully' };
+  } catch (error) {
+    console.error('Error removing song from playlist:', error);
+    return { success: false, message: 'Failed to remove song from playlist' };
+  }
+}
+
+// New action to reorder songs in playlist
+export async function reorderPlaylistSongsAction(
+  playlistId: string,
+  songOrders: Array<{ songId: string; order: number }>
+) {
+  try {
+    await convex.mutation(api.playlists.reorderSongsInPlaylist, {
+      playlistId: playlistId as Id<"playlists">,
+      songOrders: songOrders.map(item => ({
+        songId: item.songId as Id<"songs">,
+        order: item.order,
+      })),
+    });
+
+    revalidatePath('/', 'layout');
+
+    return { success: true, message: 'Songs reordered successfully' };
+  } catch (error) {
+    console.error('Error reordering songs:', error);
+    return { success: false, message: 'Failed to reorder songs' };
   }
 }
